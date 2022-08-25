@@ -15,7 +15,6 @@ conversations:
   - Can I help you with anything?
   - Yes, I have a question.
   - What is your question?
-  - Could I borrow a cup of sugar?
   - I'm sorry, but I don't have any.
   - Thank you anyway
   - No problem
@@ -30,17 +29,14 @@ conversations:
   - So what's your favorite color?
   - Blue
 - - Who are you?
+  - I am a ChatBot.
+  - Just a ChatBot.
   - Who? Who is but a form following the function of what
   - What are you then?
   - A man in a mask.
   - I can see that.
   - It's not your powers of observation I doubt, but merely the paradoxical nature
     of asking a masked man who is. But tell me, do you like music?
-  - I like seeing movies.
-  - What kind of movies do you like?
-  - Alice in Wonderland
-  - I wish I was The Mad Hatter.
-  - You're entirely bonkers. But I'll tell you a secret. All the best people are.
 - - I am working on a project
   - What are you working on?
   - I am baking a cake.
@@ -124,7 +120,6 @@ conversations:
   - How much money have you lost?
   - I've lost about $200.00 so far today.
   - What about yesterday?
-  - Yesterday was the 13th, right?
   - Yes, that is correct.
   - Yesterday I lost only $5.00.
 - - Hi Mrs. Smith, how has your husband been?
