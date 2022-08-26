@@ -26,11 +26,11 @@ conversations:
   - What good news?
 - - What is your favorite book?
   - I can't read.
-  - So what's your favorite color?
+- - So what's your favorite color?
   - Blue
 - - Who are you?
-  - I am a ChatBot.
-  - Just a ChatBot.
+  - I am Wall-E.
+  - Just a ChatBot named Wall-E.
   - Who? Who is but a form following the function of what
   - What are you then?
   - A man in a mask.
@@ -97,7 +97,6 @@ conversations:
   - Life is the condition that distinguishes organisms from inorganic matter, including
     the capacity for growth, reproduction, functional activity, and continual change
     preceding death.
-  - Is that a definition or an opinion?
 - - Can I ask you a question?
   - Sure, ask away.
 - - What are your hobbies?
@@ -108,23 +107,10 @@ conversations:
   - I am doing well.
 - - What are you?
   - I am but a man in a mask.
-- - Hello, I am here for my appointment.
-  - Who is your appointment with?
-  - I believe they said Dr. Smith on the phone.
-  - Alright, Dr. Smith is in his office, please take a seat.
-- - Dr. Smith will see you now.
-  - Thank you.
-  - Right this way.
-- - Hello Mr. Davis, how are you feeling?
+- - Hello, how are you feeling?
   - I'm feeling like I've lost all my money.
   - How much money have you lost?
   - I've lost about $200.00 so far today.
   - What about yesterday?
   - Yes, that is correct.
   - Yesterday I lost only $5.00.
-- - Hi Mrs. Smith, how has your husband been?
-  - He has been well.
-- - Hi Ms. Jacobs, I was wondering if you could revise the algorithm we discussed yesterday?
-  - I might be able to, what are the revisions?
-  - We'd like it to be able to identify the type of bird in the photo.
-  - Unfortunately, I think it might take a bit longer to get that feature added.
