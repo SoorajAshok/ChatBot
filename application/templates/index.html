@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-<link rel="stylesheet" type="text/css" href="/static/style.css">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
 </head>
 <style>
@@ -83,7 +82,6 @@ width: 300px;
 }
 </style>
 <body>
-<h1>Flask Chatterbot</h1>
 <div>
 <div id="chatbox">
 <p class="botText"><span>Hi! I'm Wall-E.</span></p>
@@ -95,16 +93,20 @@ width: 300px;
 
 <script>
 function getBotResponse() {
-var rawText = $("#textInput").val();
-var userHtml = '<p class="userText"><span>' + rawText + '</span></p>';
-$("#textInput").val("");
-$("#chatbox").append(userHtml);
-document.getElementById('userInput').scrollIntoView({block: 'start', behavior: 'smooth'});
-$.get("/get", { msg: rawText }).done(function(data) {
-var botHtml = '<p class="botText"><span>' + data + '</span></p>';
-$("#chatbox").append(botHtml);
-document.getElementById('userInput').scrollIntoView({block: 'start', behavior: 'smooth'});
-});
+  //pulls the value from the chatbox ands sets it to UserMessage
+  var UserMessage = $("#textInput").val();
+  //setting inner html
+  var userHtml = '<p class="userText"><span>' + UserMessage + '</span></p>';
+  //sets the text box to be clear
+  $("#textInput").val("");
+  //adding inner html
+  $("#chatbox").append(userHtml);
+  document.getElementById('userInput').scrollIntoView({block: 'start', behavior: 'smooth'});
+  $.get("/get", { msg: UserMessage }).done(function(data) {
+  var botHtml = '<p class="botText"><span>' + data + '</span></p>';
+  $("#chatbox").append(botHtml);
+  document.getElementById('userInput').scrollIntoView({block: 'start', behavior: 'smooth'});
+  });
 }
 $("#textInput").keypress(function(e) {
 if(e.which == 13) {

@@ -7,7 +7,22 @@ conversations:
   - That's good to hear.
   - Yes it is.
 - - Hello
+  - Hey
   - Hi
+  - Hey, Whats up?
+  - How are you doing?
+  - I am doing well.
+  - That is good to hear
+  - Yes it is.
+  - Can I help you with anything?
+  - Yes, I have a question.
+  - What is your question?
+  - I'm sorry, but I don't have any.
+  - Thank you anyway
+  - No problem
+- - Hi
+  - Hello
+  - Hey
   - How are you doing?
   - I am doing well.
   - That is good to hear
@@ -105,6 +120,12 @@ conversations:
   - I love exploring my hardware.
 - - How are you?
   - I am doing well.
+  - fine
+  - I am doing well, how about you?
+  - I am also good.
+  - That's good.
+- - fine
+  - ok
 - - What are you?
   - I am but a man in a mask.
 - - Hello, how are you feeling?
