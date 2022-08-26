@@ -1,5 +1,5 @@
 # testing/warnings.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -22,6 +22,12 @@ def setup_filters():
     warnings.filterwarnings("error", category=sa_exc.SADeprecationWarning)
     warnings.filterwarnings("error", category=sa_exc.SAWarning)
 
+    warnings.filterwarnings(
+        "ignore",
+        category=sa_exc.SAWarning,
+        message=r"Oracle version .* is known to have a " "maximum identifier",
+    )
+
     # some selected deprecations...
     warnings.filterwarnings("error", category=DeprecationWarning)
     warnings.filterwarnings(
@@ -30,6 +36,15 @@ def setup_filters():
     warnings.filterwarnings(
         "ignore", category=DeprecationWarning, message=".*inspect.getargspec"
     )
+
+    try:
+        import pytest
+    except ImportError:
+        pass
+    else:
+        warnings.filterwarnings(
+            "once", category=pytest.PytestDeprecationWarning
+        )
 
 
 def assert_warnings(fn, warning_msgs, regex=False):

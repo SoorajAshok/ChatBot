@@ -1,5 +1,5 @@
 # testing/assertsql.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -183,26 +183,33 @@ class CompiledSQL(SQLMatchRule):
 
     def _failure_message(self, expected_params):
         return (
-            "Testing for compiled statement %r partial params %r, "
+            "Testing for compiled statement %r partial params %s, "
             "received %%(received_statement)r with params "
             "%%(received_parameters)r"
-            % (self.statement.replace("%", "%%"), expected_params)
+            % (
+                self.statement.replace("%", "%%"),
+                repr(expected_params).replace("%", "%%"),
+            )
         )
 
 
 class RegexSQL(CompiledSQL):
-    def __init__(self, regex, params=None):
+    def __init__(self, regex, params=None, dialect="default"):
         SQLMatchRule.__init__(self)
         self.regex = re.compile(regex)
         self.orig_regex = regex
         self.params = params
-        self.dialect = "default"
+        self.dialect = dialect
 
     def _failure_message(self, expected_params):
         return (
-            "Testing for compiled statement ~%r partial params %r, "
+            "Testing for compiled statement ~%r partial params %s, "
             "received %%(received_statement)r with params "
-            "%%(received_parameters)r" % (self.orig_regex, expected_params)
+            "%%(received_parameters)r"
+            % (
+                self.orig_regex.replace("%", "%%"),
+                repr(expected_params).replace("%", "%%"),
+            )
         )
 
     def _compare_sql(self, execute_observed, received_statement):

@@ -1,30 +1,20 @@
-import importlib
+import configparser
 import sys
 import os
 
 
 def get_chatterbot_version():
-    chatterbot = importlib.import_module('chatterbot')
-    return chatterbot.__version__
+    config = configparser.ConfigParser()
 
+    current_directory = os.path.dirname(os.path.abspath(__file__))
+    parent_directory = os.path.abspath(os.path.join(current_directory, os.pardir))
+    config_file_path = os.path.join(parent_directory, 'setup.cfg')
 
-def get_nltk_data_directories():
-    import nltk.data
+    config.read(config_file_path)
 
-    data_directories = []
-
-    # Find each data directory in the NLTK path that has content
-    for path in nltk.data.path:
-        if os.path.exists(path):
-            if os.listdir(path):
-                data_directories.append(path)
-
-    return os.linesep.join(data_directories)
+    return config['chatterbot']['version']
 
 
 if __name__ == '__main__':
     if '--version' in sys.argv:
         print(get_chatterbot_version())
-
-    if 'list_nltk_data' in sys.argv:
-        print(get_nltk_data_directories())

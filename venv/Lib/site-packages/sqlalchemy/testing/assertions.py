@@ -1,5 +1,5 @@
 # testing/assertions.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -9,6 +9,7 @@ from __future__ import absolute_import
 
 import contextlib
 import re
+import sys
 import warnings
 
 from . import assertsql
@@ -18,9 +19,9 @@ from . import util as testutil
 from .exclusions import db_spec
 from .util import fail
 from .. import exc as sa_exc
-from .. import orm
 from .. import pool
 from .. import schema
+from .. import sql
 from .. import types as sqltypes
 from .. import util
 from ..engine import default
@@ -247,6 +248,10 @@ def le_(a, b, msg=None):
     assert a <= b, msg or "%r != %r" % (a, b)
 
 
+def is_instance_of(a, b, msg=None):
+    assert isinstance(a, b), msg or "%r is not an instance of %r" % (a, b)
+
+
 def is_true(a, msg=None):
     is_(a, True, msg=msg)
 
@@ -260,9 +265,13 @@ def is_(a, b, msg=None):
     assert a is b, msg or "%r is not %r" % (a, b)
 
 
-def is_not_(a, b, msg=None):
+def is_not(a, b, msg=None):
     """Assert a is not b, with repr messaging on failure."""
     assert a is not b, msg or "%r is %r" % (a, b)
+
+
+# deprecated.  See #5429
+is_not_ = is_not
 
 
 def in_(a, b, msg=None):
@@ -270,9 +279,13 @@ def in_(a, b, msg=None):
     assert a in b, msg or "%r not in %r" % (a, b)
 
 
-def not_in_(a, b, msg=None):
+def not_in(a, b, msg=None):
     """Assert a in not b, with repr messaging on failure."""
     assert a not in b, msg or "%r is in %r" % (a, b)
+
+
+# deprecated.  See #5429
+not_in_ = not_in
 
 
 def startswith_(a, fragment, msg=None):
@@ -292,27 +305,86 @@ def eq_ignore_whitespace(a, b, msg=None):
     assert a == b, msg or "%r != %r" % (a, b)
 
 
+def _assert_proper_exception_context(exception):
+    """assert that any exception we're catching does not have a __context__
+    without a __cause__, and that __suppress_context__ is never set.
+
+    Python 3 will report nested as exceptions as "during the handling of
+    error X, error Y occurred". That's not what we want to do.  we want
+    these exceptions in a cause chain.
+
+    """
+
+    if not util.py3k:
+        return
+
+    if (
+        exception.__context__ is not exception.__cause__
+        and not exception.__suppress_context__
+    ):
+        assert False, (
+            "Exception %r was correctly raised but did not set a cause, "
+            "within context %r as its cause."
+            % (exception, exception.__context__)
+        )
+
+
 def assert_raises(except_cls, callable_, *args, **kw):
+    _assert_raises(except_cls, callable_, args, kw, check_context=True)
+
+
+def assert_raises_context_ok(except_cls, callable_, *args, **kw):
+    _assert_raises(
+        except_cls,
+        callable_,
+        args,
+        kw,
+    )
+
+
+def assert_raises_return(except_cls, callable_, *args, **kw):
+    return _assert_raises(except_cls, callable_, args, kw, check_context=True)
+
+
+def assert_raises_message(except_cls, msg, callable_, *args, **kwargs):
+    _assert_raises(
+        except_cls, callable_, args, kwargs, msg=msg, check_context=True
+    )
+
+
+def assert_raises_message_context_ok(
+    except_cls, msg, callable_, *args, **kwargs
+):
+    _assert_raises(except_cls, callable_, args, kwargs, msg=msg)
+
+
+def _assert_raises(
+    except_cls, callable_, args, kwargs, msg=None, check_context=False
+):
+    ret_err = None
+    if check_context:
+        are_we_already_in_a_traceback = sys.exc_info()[0]
     try:
-        callable_(*args, **kw)
+        callable_(*args, **kwargs)
         success = False
-    except except_cls:
+    except except_cls as err:
+        ret_err = err
         success = True
+        if msg is not None:
+            assert re.search(
+                msg, util.text_type(err), re.UNICODE
+            ), "%r !~ %s" % (
+                msg,
+                err,
+            )
+        if check_context and not are_we_already_in_a_traceback:
+            _assert_proper_exception_context(err)
+        print(util.text_type(err).encode("utf-8"))
 
     # assert outside the block so it works for AssertionError too !
     assert success, "Callable did not raise an exception"
 
-
-def assert_raises_message(except_cls, msg, callable_, *args, **kwargs):
-    try:
-        callable_(*args, **kwargs)
-        assert False, "Callable did not raise an exception"
-    except except_cls as e:
-        assert re.search(msg, util.text_type(e), re.UNICODE), "%r !~ %s" % (
-            msg,
-            e,
-        )
-        print(util.text_type(e).encode("utf-8"))
+    return ret_err
 
 
 class AssertsCompiledSQL(object):
@@ -359,6 +431,8 @@ class AssertsCompiledSQL(object):
         if literal_binds:
             compile_kwargs["literal_binds"] = True
 
+        from sqlalchemy import orm
+
         if isinstance(clause, orm.Query):
             context = clause._compile_context()
             context.statement.use_labels = True
@@ -371,7 +445,60 @@ class AssertsCompiledSQL(object):
         if compile_kwargs:
             kw["compile_kwargs"] = compile_kwargs
 
-        c = clause.compile(dialect=dialect, **kw)
+        class DontAccess(object):
+            def __getattribute__(self, key):
+                raise NotImplementedError(
+                    "compiler accessed .statement; use "
+                    "compiler.current_executable"
+                )
+
+        class CheckCompilerAccess(object):
+            def __init__(self, test_statement):
+                self.test_statement = test_statement
+                self.supports_execution = getattr(
+                    test_statement, "supports_execution", False
+                )
+                if self.supports_execution:
+                    self._execution_options = test_statement._execution_options
+
+                    if isinstance(
+                        test_statement, (sql.Insert, sql.Update, sql.Delete)
+                    ):
+                        self._returning = test_statement._returning
+                    if isinstance(test_statement, (sql.Insert, sql.Update)):
+                        self.inline = test_statement.inline
+                        self._return_defaults = test_statement._return_defaults
+
+            def _default_dialect(self):
+                return self.test_statement._default_dialect()
+
+            def compile(self, dialect, **kw):
+                return self.test_statement.compile.__func__(
+                    self, dialect=dialect, **kw
+                )
+
+            def _compiler(self, dialect, **kw):
+                return self.test_statement._compiler.__func__(
+                    self, dialect, **kw
+                )
+
+            def _compiler_dispatch(self, compiler, **kwargs):
+                if hasattr(compiler, "statement"):
+                    with mock.patch.object(
+                        compiler, "statement", DontAccess()
+                    ):
+                        return self.test_statement._compiler_dispatch(
+                            compiler, **kwargs
+                        )
+                else:
+                    return self.test_statement._compiler_dispatch(
+                        compiler, **kwargs
+                    )
+
+        # no construct can assume it's the "top level" construct in all cases
+        # as anything can be nested.  ensure constructs don't assume they
+        # are the "self.statement" element
+        c = CheckCompilerAccess(clause).compile(dialect=dialect, **kw)
 
         param_str = repr(getattr(c, "params", {}))
 
@@ -437,9 +564,12 @@ class ComparesTables(object):
             assert reflected_table.primary_key.columns[c.name] is not None
 
     def assert_types_base(self, c1, c2):
-        assert c1.type._compare_type_affinity(c2.type), (
-            "On column %r, type '%s' doesn't correspond to type '%s'"
-            % (c1.name, c1.type, c2.type)
+        assert c1.type._compare_type_affinity(
+            c2.type
+        ), "On column %r, type '%s' doesn't correspond to type '%s'" % (
+            c1.name,
+            c1.type,
+            c2.type,
         )
 
 

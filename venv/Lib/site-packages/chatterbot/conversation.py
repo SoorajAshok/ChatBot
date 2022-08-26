@@ -9,6 +9,26 @@ class StatementMixin(object):
     normalize different statement models.
     """
 
+    statement_field_names = [
+        'id',
+        'text',
+        'search_text',
+        'conversation',
+        'persona',
+        'tags',
+        'in_response_to',
+        'search_in_response_to',
+        'created_at',
+    ]
+
+    extra_statement_field_names = []
+
+    def get_statement_field_names(self):
+        """
+        Return the list of field names for the statement.
+        """
+        return self.statement_field_names + self.extra_statement_field_names
+
     def get_tags(self):
         """
         Return the list of tags for this statement.
@@ -26,17 +46,19 @@ class StatementMixin(object):
         :returns: A dictionary representation of the statement object.
         :rtype: dict
         """
-        return {
-            'id': self.id,
-            'text': self.text,
-            'search_text': self.search_text,
-            'created_at': self.created_at.isoformat().split('+', 1)[0],
-            'conversation': self.conversation,
-            'in_response_to': self.in_response_to,
-            'search_in_response_to': self.search_in_response_to,
-            'persona': self.persona,
-            'tags': self.get_tags()
-        }
+        data = {}
+
+        for field_name in self.get_statement_field_names():
+            format_method = getattr(self, 'get_{}'.format(
+                field_name
+            ), None)
+
+            if format_method:
+                data[field_name] = format_method()
+            else:
+                data[field_name] = getattr(self, field_name)
+
+        return data
 
 
 class Statement(StatementMixin):
@@ -90,19 +112,6 @@ class Statement(StatementMixin):
 
     def __repr__(self):
         return '<Statement text:%s>' % (self.text)
-
-    def __hash__(self):
-        in_response_to = self.in_response_to or ''
-        return hash(self.text + ':' + in_response_to)
-
-    def __eq__(self, other):
-        if not other:
-            return False
-
-        if isinstance(other, Statement):
-            return self.text == other.text
-
-        return self.text == other
 
     def save(self):
         """

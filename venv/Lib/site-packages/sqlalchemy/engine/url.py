@@ -1,5 +1,5 @@
 # engine/url.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -29,7 +29,7 @@ class URL(object):
 
     This object is suitable to be passed directly to a
     :func:`~sqlalchemy.create_engine` call.  The fields of the URL are parsed
-    from a string by the :func:`.make_url` function.  the string
+    from a string by the :func:`.make_url` function.  The string
     format of the URL is an RFC-1738-style string.
 
     All initialization parameters are available as public attributes.
@@ -96,7 +96,7 @@ class URL(object):
             keys = list(self.query)
             keys.sort()
             s += "?" + "&".join(
-                "%s=%s" % (k, element)
+                "%s=%s" % (util.quote_plus(k), util.quote_plus(element))
                 for k in keys
                 for element in util.to_list(self.query[k])
             )

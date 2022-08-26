@@ -1,5 +1,5 @@
 # firebird/kinterbasdb.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -188,7 +188,8 @@ class FBDialect_kinterbasdb(FBDialect):
         ):
             msg = str(e)
             return (
-                "Unable to complete network request to host" in msg
+                "Error writing data to the connection" in msg
+                or "Unable to complete network request to host" in msg
                 or "Invalid connection state" in msg
                 or "Invalid cursor state" in msg
                 or "connection shutdown" in msg
