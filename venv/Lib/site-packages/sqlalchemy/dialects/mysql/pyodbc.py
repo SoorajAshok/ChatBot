@@ -1,11 +1,11 @@
 # mysql/pyodbc.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
 # the MIT License: http://www.opensource.org/licenses/mit-license.php
 
-"""
+r"""
 
 
 .. dialect:: mysql+pyodbc
@@ -20,14 +20,40 @@
        (see http://code.google.com/p/pyodbc/issues/detail?id=25).
        Other dialects for MySQL are recommended.
 
-"""
+Pass through exact pyodbc connection string::
+
+    import urllib
+    connection_string = (
+        'DRIVER=MySQL ODBC 8.0 ANSI Driver;'
+        'SERVER=localhost;'
+        'PORT=3307;'
+        'DATABASE=mydb;'
+        'UID=root;'
+        'PWD=(whatever);'
+        'charset=utf8mb4;'
+    )
+    params = urllib.parse.quote_plus(connection_string)
+    connection_uri = "mysql+pyodbc:///?odbc_connect=%s" % params
+
+"""  # noqa
 
 import re
 
 from .base import MySQLDialect
 from .base import MySQLExecutionContext
+from .types import TIME
 from ... import util
 from ...connectors.pyodbc import PyODBCConnector
+from ...sql.sqltypes import Time
+
+
+class _pyodbcTIME(TIME):
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            # pyodbc returns a datetime.time object; no need to convert
+            return value
+
+        return process
 
 
 class MySQLExecutionContext_pyodbc(MySQLExecutionContext):
@@ -40,6 +66,7 @@ class MySQLExecutionContext_pyodbc(MySQLExecutionContext):
 
 
 class MySQLDialect_pyodbc(PyODBCConnector, MySQLDialect):
+    colspecs = util.update_copy(MySQLDialect.colspecs, {Time: _pyodbcTIME})
     supports_unicode_statements = False
     execution_ctx_cls = MySQLExecutionContext_pyodbc
 

@@ -1,5 +1,5 @@
 # orm/loading.py
-# Copyright (C) 2005-2019 the SQLAlchemy authors and contributors
+# Copyright (C) 2005-2021 the SQLAlchemy authors and contributors
 # <see AUTHORS file>
 #
 # This module is part of SQLAlchemy and is released under
@@ -28,7 +28,6 @@ from .. import exc as sa_exc
 from .. import util
 from ..sql import util as sql_util
 
-
 _new_runid = util.counter()
 
 
@@ -40,11 +39,7 @@ def instances(query, cursor, context):
 
     filtered = query._has_mapper_entities
 
-    single_entity = (
-        not query._only_return_tuples
-        and len(query._entities) == 1
-        and query._entities[0].supports_single_entity
-    )
+    single_entity = query.is_single_entity
 
     if filtered:
         if single_entity:
@@ -100,14 +95,14 @@ def instances(query, cursor, context):
 
             if not query._yield_per:
                 break
-    except Exception as err:
-        cursor.close()
-        util.raise_from_cause(err)
+    except Exception:
+        with util.safe_reraise():
+            cursor.close()
 
 
 @util.dependencies("sqlalchemy.orm.query")
 def merge_result(querylib, query, iterator, load=True):
-    """Merge a result into this :class:`.Query` object's Session."""
+    """Merge a result into this :class:`_query.Query` object's Session."""
 
     session = query.session
     if load:
@@ -159,7 +154,7 @@ def merge_result(querylib, query, iterator, load=True):
         session.autoflush = autoflush
 
 
-def get_from_identity(session, key, passive):
+def get_from_identity(session, mapper, key, passive):
     """Look up the given key in the given session's identity map,
     check the object for expired state if found.
 
@@ -168,6 +163,9 @@ def get_from_identity(session, key, passive):
     if instance is not None:
 
         state = attributes.instance_state(instance)
+
+        if mapper.inherits and not state.mapper.isa(mapper):
+            return attributes.PASSIVE_CLASS_MISMATCH
 
         # expired - ensure it still exists
         if state.expired:
@@ -245,6 +243,12 @@ def load_on_pk_identity(
             )
             _get_clause = sql_util.adapt_criterion_to_null(_get_clause, nones)
 
+            if len(nones) == len(primary_key_identity):
+                util.warn(
+                    "fully NULL primary key identity cannot load any "
+                    "object.  This condition may raise an error in a future "
+                    "release."
+                )
         _get_clause = q._adapt_clause(_get_clause, True, False)
         q._criterion = _get_clause
 
@@ -334,6 +338,18 @@ def _setup_entity_query(
         column_collection.append(pd)
 
 
+def _warn_for_runid_changed(state):
+    util.warn(
+        "Loading context for %s has changed within a load/refresh "
+        "handler, suggesting a row refresh operation took place. If this "
+        "event handler is expected to be "
+        "emitting row refresh operations within an existing load or refresh "
+        "operation, set restore_load_context=True when establishing the "
+        "listener to ensure the context remains unchanged when the event "
+        "handler completes." % (state_str(state),)
+    )
+
+
 def _instance_processor(
     mapper,
     context,
@@ -346,7 +362,7 @@ def _instance_processor(
     _polymorphic_from=None,
 ):
     """Produce a mapper level row processor callable
-       which processes rows into mapped instances."""
+    which processes rows into mapped instances."""
 
     # note that this method, most of which exists in a closure
     # called _instance(), resists being broken out, as
@@ -573,15 +589,28 @@ def _instance_processor(
             )
 
             if isnew:
+                # state.runid should be equal to context.runid / runid
+                # here, however for event checks we are being more conservative
+                # and checking against existing run id
+                # assert state.runid == runid
+
+                existing_runid = state.runid
+
                 if loaded_instance:
                     if load_evt:
                         state.manager.dispatch.load(state, context)
+                        if state.runid != existing_runid:
+                            _warn_for_runid_changed(state)
                     if persistent_evt:
-                        loaded_as_persistent(context.session, state.obj())
+                        loaded_as_persistent(context.session, state)
+                        if state.runid != existing_runid:
+                            _warn_for_runid_changed(state)
                 elif refresh_evt:
                     state.manager.dispatch.refresh(
                         state, context, only_load_props
                     )
+                    if state.runid != runid:
+                        _warn_for_runid_changed(state)
 
                 if populate_existing or state.modified:
                     if refresh_state and only_load_props:
@@ -617,7 +646,10 @@ def _instance_processor(
 
                 if isnew:
                     if refresh_evt:
+                        existing_runid = state.runid
                         state.manager.dispatch.refresh(state, context, to_load)
+                        if state.runid != existing_runid:
+                            _warn_for_runid_changed(state)
 
                     state._commit(dict_, to_load)
 
@@ -700,6 +732,7 @@ def _populate_full(
             for key, set_callable in populators["expire"]:
                 if set_callable:
                     state.expired_attributes.add(key)
+
         for key, populator in populators["new"]:
             populator(state, dict_, row)
         for key, populator in populators["delayed"]:
@@ -845,9 +878,7 @@ def _decorate_polymorphic_switch(
 
 
 class PostLoad(object):
-    """Track loaders and states for "post load" operations.
-
-    """
+    """Track loaders and states for "post load" operations."""
 
     __slots__ = "loaders", "states", "load_keys"
 
@@ -921,7 +952,7 @@ def load_scalar_attributes(mapper, state, attribute_names):
     # concrete inheritance, the class manager might have some keys
     # of attributes on the superclass that we didn't actually map.
     # These could be mapped as "concrete, dont load" or could be completely
-    # exluded from the mapping and we know nothing about them.  Filter them
+    # excluded from the mapping and we know nothing about them.  Filter them
     # here to prevent them from coming through.
     if attribute_names:
         attribute_names = attribute_names.intersection(mapper.attrs.keys())
